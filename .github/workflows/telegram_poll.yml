@@ -23,10 +23,11 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python scripts/telegram_bot.py
-      - name: Commit any config changes
+            - name: Commit any config changes
         run: |
           git config user.name "dub-notifier-bot"
           git config user.email "actions@github.com"
           git add config/channels.json config/telegram_state.json
           git diff --cached --quiet || git commit -m "Update config from Telegram command"
+          git pull --rebase origin main
           git push
