@@ -27,10 +27,11 @@ jobs:
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/check_and_send.py
-      - name: Commit updated config
+            - name: Commit updated config
         run: |
           git config user.name "dub-notifier-bot"
           git config user.email "actions@github.com"
           git add config/channels.json
           git diff --cached --quiet || git commit -m "Update last seen video IDs"
+          git pull --rebase origin main
           git push
