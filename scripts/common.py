@@ -43,12 +43,14 @@ def save_telegram_state(data):
     save_json(STATE_PATH, data)
 
 
-# ----------------------------------------------------------------------
-# Resolve a pasted YouTube channel URL (/@handle, /c/name, /channel/UC..,
-# or a video URL from that channel) into a canonical UC... channel_id.
-# ----------------------------------------------------------------------
 def resolve_channel_id(url):
-    ydl_opts = {"quiet": True, "no_warnings": True, "extract_flat": True, "skip_download": True}
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "extract_flat": True,
+        "skip_download": True,
+        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+    }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
         channel_id = info.get("channel_id") or info.get("id")
@@ -58,10 +60,6 @@ def resolve_channel_id(url):
         return channel_id, channel_name
 
 
-# ----------------------------------------------------------------------
-# GitHub: upload a file as a release asset and return its public URL.
-# Uses one release per run (tagged by timestamp) to avoid name clashes.
-# ----------------------------------------------------------------------
 def github_upload_asset(repo, token, file_path, asset_name):
     headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github+json"}
     tag = f"audio-{int(time.time())}"
@@ -85,9 +83,6 @@ def github_upload_asset(repo, token, file_path, asset_name):
     return r2.json()["browser_download_url"]
 
 
-# ----------------------------------------------------------------------
-# Resend email
-# ----------------------------------------------------------------------
 def send_email(api_key, from_addr, to_addr, subject, html):
     r = requests.post(
         "https://api.resend.com/emails",
@@ -98,9 +93,6 @@ def send_email(api_key, from_addr, to_addr, subject, html):
     return r.json()
 
 
-# ----------------------------------------------------------------------
-# Telegram alert (used to notify you of errors from check_and_send.py)
-# ----------------------------------------------------------------------
 def send_telegram_message(token, chat_id, text):
     if not token or not chat_id:
         return
@@ -111,4 +103,4 @@ def send_telegram_message(token, chat_id, text):
             timeout=10,
         )
     except Exception:
-        pass  # never let a failed alert crash the main script
+        pass
