@@ -72,7 +72,7 @@ def handle_command(token, chat_id, text, data):
         reply(token, chat_id, f"Added '{channel_name}' ({channel_id}), dub language: {language}")
 
     elif cmd == "/setlang" and len(parts) >= 3:
-        name, language = parts[1], parts[2]
+        name, language = " ".join(parts[1:-1]), parts[-1]
         ch = find_channel(data, name)
         if not ch:
             reply(token, chat_id, f"No channel named '{name}'. Use /list to see tracked channels.")
@@ -81,7 +81,7 @@ def handle_command(token, chat_id, text, data):
         reply(token, chat_id, f"'{ch['name']}' will now use dub language: {language}")
 
     elif cmd == "/remove" and len(parts) >= 2:
-        name = parts[1]
+        name = " ".join(parts[1:])
         ch = find_channel(data, name)
         if not ch:
             reply(token, chat_id, f"No channel named '{name}'.")
