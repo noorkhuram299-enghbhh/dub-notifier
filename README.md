@@ -2,79 +2,57 @@
 
 Runs entirely on GitHub's free servers. Your PC does not need to be on.
 
-Every 15 minutes it checks the YouTube channels you're tracking. When a new
+Every 5 minutes it checks the YouTube channels you're tracking. When a new
 video appears, it downloads the audio track in your chosen dub language,
 uploads it to a GitHub Release (so it has a public link), and emails you
 that link + the video link via Resend.
 
 You control which channels are tracked and which language each one uses by
-messaging a Telegram bot — from your phone, any time, PC off or on.
+messaging a Telegram bot — from your phone, any time, PC off or on. If
+anything fails (a download error, a channel that can't be reached, etc.)
+you also get a Telegram message about it.
 
-## One-time setup
+## How it's wired up
 
-### 1. Create the repo
-- Create a **public** GitHub repo (public repos get free, effectively
-  unlimited Actions minutes; private repos get 2,000 free minutes/month,
-  which is usually still plenty at this schedule).
-- Upload all these files to it, preserving the folder structure.
+- **GitHub Actions** — runs the checks on a schedule, free, on GitHub's
+  servers.
+- **YouTube RSS feed** — detects new uploads with no API key needed.
+- **yt-dlp** — finds and downloads the audio track matching your chosen
+  language (falls back to the original/default track if that language
+  isn't available on a given video).
+- **GitHub Releases** — stores the downloaded audio so it has a public
+  link small enough to email (raw attachments over ~40MB get rejected by
+  email providers).
+- **Resend** — sends the notification email.
+- **Telegram bot** — lets you add/remove channels and change languages
+  remotely, and also receives error alerts.
 
-### 2. Get a Resend API key
-- Sign up at resend.com, verify a sending domain (or use their test domain
-  for your own inbox while testing), and grab an API key.
+## Files
 
-### 3. Create a Telegram bot
-- Message **@BotFather** on Telegram, send `/newbot`, follow the prompts.
-  You'll get a bot token like `123456:ABC-...`.
-- Message your new bot anything, then visit
-  `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates` in a browser to find
-  your numeric `chat.id` — that's your `TELEGRAM_CHAT_ID`. This restricts
-  the bot so only you can issue commands.
+| File | Purpose |
+|---|---|
+| `config/channels.json` | Tracked channels, chosen language, last seen video ID |
+| `config/telegram_state.json` | Telegram polling offset (internal bookkeeping) |
+| `scripts/common.py` | Shared helpers: config I/O, GitHub uploads, email, Telegram |
+| `scripts/check_and_send.py` | Main checker: finds new videos, downloads audio, emails |
+| `scripts/telegram_bot.py` | Handles `/add`, `/setlang`, `/remove`, `/list` commands |
+| `scripts/test_email.py` | Standalone test — sends one email, no YouTube involved |
+| `.github/workflows/check_videos.yml` | Runs the checker every 5 minutes |
+| `.github/workflows/telegram_poll.yml` | Polls Telegram every 2 minutes |
+| `.github/workflows/test_email.yml` | Manual-only workflow to test the email pipeline |
 
-### 4. Add repo secrets
-In your repo: **Settings → Secrets and variables → Actions → New repository
-secret**. Add:
+## Required secrets
+
+Set these under **Settings → Secrets and variables → Actions**:
 
 | Secret | Value |
 |---|---|
-| `RESEND_API_KEY` | from Resend |
-| `EMAIL_FROM` | e.g. `notifier@yourdomain.com` (must match your verified Resend domain) |
-| `EMAIL_TO` | the address you want notifications sent to |
-| `TELEGRAM_BOT_TOKEN` | from BotFather |
-| `TELEGRAM_CHAT_ID` | your chat id from step 3 |
+| `RESEND_API_KEY` | from resend.com |
+| `EMAIL_FROM` | sender address on a domain verified with Resend (or `onboarding@resend.dev` for testing) |
+| `EMAIL_TO` | where notifications go — **must match your Resend account's signup email** unless you've verified your own domain |
+| `TELEGRAM_BOT_TOKEN` | from @BotFather |
+| `TELEGRAM_CHAT_ID` | your personal Telegram chat ID, so only you can control the bot |
 
-(`GITHUB_TOKEN` is provided automatically — you don't need to add it.)
-
-### 5. Turn it on
-The workflows run automatically on their schedule once the files are on
-GitHub. You can also trigger either one manually from the **Actions** tab
-to test it right away, instead of waiting for the schedule.
+(`GITHUB_TOKEN` is provided automatically by GitHub Actions — no need to add it.)
 
 ## Using it (all via Telegram)
-
-```
-/add https://youtube.com/@somechannel hindi
-/list
-/setlang somechannel english
-/remove somechannel
-/help
-```
-
-The channel "name" used in `/setlang` and `/remove` is whatever YouTube
-reports as the channel's display name — check `/list` if unsure.
-
-## Things worth knowing
-
-- **First run for a new channel**: it remembers the current latest video as
-  "already seen" so you don't get flooded with the entire back-catalog —
-  only videos uploaded *after* you add the channel trigger an email.
-- **Language fallback**: if the video doesn't have your chosen dub, the
-  email says so and includes the original/default audio track instead.
-- **Storage**: audio files are attached to time-stamped GitHub Releases in
-  this repo, not stored in the repo history — that keeps the repo itself
-  small. Delete old releases from the repo's Releases page occasionally if
-  you want to tidy up.
-- **Check interval**: 15 minutes for new videos, 2 minutes for Telegram
-  commands — adjust the `cron` lines in `.github/workflows/*.yml` if you
-  want it faster or slower (more frequent = more Actions minutes used).
-- **YouTube's Terms of Service** technically don't allow downloading videos.
-  This is intended for personal use of content — worth being aware of.
