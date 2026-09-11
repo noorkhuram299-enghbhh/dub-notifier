@@ -37,6 +37,7 @@ def fetch_feed_entries(channel_id):
         "extract_flat": True,
         "skip_download": True,
         "playlistend": 15,
+        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
@@ -132,6 +133,7 @@ def download_audio(url, format_id, out_dir):
         "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}],
         "quiet": True,
         "no_warnings": True,
+        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
@@ -141,7 +143,12 @@ def download_audio(url, format_id, out_dir):
 
 def process_video(channel, video, repo, github_token, resend_key, email_from, email_to):
     video_url = video["link"]
-    with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True, "skip_download": True}) as ydl:
+    with yt_dlp.YoutubeDL({
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+    }) as ydl:
         info = ydl.extract_info(video_url, download=False)
 
     track, matched = best_track_for_language(info, channel["language"])
