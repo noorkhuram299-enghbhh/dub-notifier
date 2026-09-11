@@ -27,7 +27,7 @@ import xml.etree.ElementTree as ET
 import requests
 import yt_dlp
 
-from common import load_channels, save_channels, github_upload_asset, send_email
+from common import load_channels, save_channels, github_upload_asset, send_email, send_telegram_message
 
 NS = {"a": "http://www.w3.org/2005/Atom", "yt": "http://www.youtube.com/xml/schemas/2015"}
 
@@ -130,16 +130,19 @@ def main():
     resend_key = os.environ["RESEND_API_KEY"]
     email_from = os.environ["EMAIL_FROM"]
     email_to = os.environ["EMAIL_TO"]
+    tg_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    tg_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
 
     data = load_channels()
     changed = False
 
     for channel in data["channels"]:
         print(f"Checking {channel['name']} ({channel['channel_id']})...")
-        try:
+                try:
             entries = fetch_feed_entries(channel["channel_id"])
         except Exception as e:
             print(f"  failed to fetch feed: {e}")
+            send_telegram_message(tg_token, tg_chat_id, f"⚠️ Failed to check {channel['name']}: {e}")
             continue
 
         if not entries:
@@ -164,10 +167,14 @@ def main():
 
         for video in new_ones:
             print(f"  new video: {video['title']}")
-            try:
+                        try:
                 process_video(channel, video, repo, github_token, resend_key, email_from, email_to)
             except Exception as e:
                 print(f"  failed to process {video['link']}: {e}")
+                send_telegram_message(
+                    tg_token, tg_chat_id,
+                    f"⚠️ Failed to process video for {channel['name']}: {video['title']}\nReason: {e}"
+                )
                 continue
             channel["last_video_id"] = video["video_id"]
             changed = True
