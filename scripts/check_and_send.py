@@ -2,8 +2,8 @@
 Runs on a GitHub Actions schedule (no PC required).
 
 For every channel in config/channels.json:
-  1. Read the channel's public RSS feed to find videos newer than the
-     last one we already processed.
+  1. Use yt-dlp to read the channel's Videos tab and find videos newer
+     than the last one we already processed.
   2. For each new video, use yt-dlp to find the audio track matching the
      saved language preference (falls back to the original/default track
      if that language isn't available on this particular video).
@@ -22,32 +22,37 @@ Required environment variables (set as GitHub Actions secrets):
 
 import os
 import sys
-import xml.etree.ElementTree as ET
 
 import requests
 import yt_dlp
 
 from common import load_channels, save_channels, github_upload_asset, send_email, send_telegram_message
 
-NS = {"a": "http://www.w3.org/2005/Atom", "yt": "http://www.youtube.com/xml/schemas/2015"}
-
 
 def fetch_feed_entries(channel_id):
-    url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                      "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    url = f"https://www.youtube.com/channel/{channel_id}/videos"
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "extract_flat": True,
+        "skip_download": True,
+        "playlistend": 15,
     }
-    resp = requests.get(url, headers=headers, timeout=20)
-    resp.raise_for_status()
-    root = ET.fromstring(resp.content)
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+
     entries = []
-    for entry in root.findall("a:entry", NS):
-        video_id = entry.find("yt:videoId", NS).text
-        title = entry.find("a:title", NS).text
-        link = entry.find("a:link", NS).attrib["href"]
-        entries.append({"video_id": video_id, "title": title, "link": link})
-    return entries  # newest first, as YouTube returns it
+    for e in info.get("entries", []) or []:
+        video_id = e.get("id")
+        title = e.get("title")
+        if not video_id:
+            continue
+        entries.append({
+            "video_id": video_id,
+            "title": title,
+            "link": f"https://www.youtube.com/watch?v={video_id}",
+        })
+    return entries  # newest first, as YouTube's Videos tab lists them
 
 
 LANGUAGE_ALIASES = {
