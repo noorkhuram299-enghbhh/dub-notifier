@@ -96,3 +96,15 @@ def send_email(api_key, from_addr, to_addr, subject, html):
     )
     r.raise_for_status()
     return r.json()
+
+def send_telegram_message(token, chat_id, text):
+    if not token or not chat_id:
+        return
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": text},
+            timeout=10,
+        )
+    except Exception:
+        pass  # never let a failed alert crash the main script
