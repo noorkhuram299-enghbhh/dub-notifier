@@ -18,6 +18,7 @@ Required environment variables (set as GitHub Actions secrets):
   EMAIL_TO         - where notifications should be sent
   GITHUB_TOKEN     - provided automatically by GitHub Actions
   GITHUB_REPOSITORY- provided automatically by GitHub Actions (owner/repo)
+  YOUTUBE_COOKIES  - optional, exported browser cookies to bypass bot checks
 """
 
 import os
@@ -29,6 +30,19 @@ import yt_dlp
 from common import load_channels, save_channels, github_upload_asset, send_email, send_telegram_message
 
 
+COOKIE_FILE = "/tmp/youtube_cookies.txt"
+
+
+def _cookie_opts():
+    cookies = os.environ.get("YOUTUBE_COOKIES")
+    if not cookies:
+        return {}
+    if not os.path.exists(COOKIE_FILE):
+        with open(COOKIE_FILE, "w", encoding="utf-8") as f:
+            f.write(cookies)
+    return {"cookiefile": COOKIE_FILE}
+
+
 def fetch_feed_entries(channel_id):
     url = f"https://www.youtube.com/channel/{channel_id}/videos"
     ydl_opts = {
@@ -38,6 +52,7 @@ def fetch_feed_entries(channel_id):
         "skip_download": True,
         "playlistend": 15,
         "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        **_cookie_opts(),
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
@@ -53,7 +68,7 @@ def fetch_feed_entries(channel_id):
             "title": title,
             "link": f"https://www.youtube.com/watch?v={video_id}",
         })
-    return entries  # newest first, as YouTube's Videos tab lists them
+    return entries
 
 
 LANGUAGE_ALIASES = {
@@ -134,6 +149,7 @@ def download_audio(url, format_id, out_dir):
         "quiet": True,
         "no_warnings": True,
         "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        **_cookie_opts(),
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
@@ -148,6 +164,7 @@ def process_video(channel, video, repo, github_token, resend_key, email_from, em
         "no_warnings": True,
         "skip_download": True,
         "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        **_cookie_opts(),
     }) as ydl:
         info = ydl.extract_info(video_url, download=False)
 
