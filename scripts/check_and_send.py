@@ -141,9 +141,9 @@ def best_track_for_language(info, language):
     return None, False
 
 
-def download_audio(url, format_id, out_dir):
+def download_audio(url, language_code, out_dir):
     ydl_opts = {
-        "format": format_id,
+        "format": f"bestaudio[language={language_code}]/bestaudio",
         "outtmpl": os.path.join(out_dir, "%(id)s.%(ext)s"),
         "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}],
         "quiet": True,
@@ -175,7 +175,7 @@ def process_video(channel, video, repo, github_token, resend_key, email_from, em
 
     out_dir = "/tmp/downloads"
     os.makedirs(out_dir, exist_ok=True)
-    mp3_path = download_audio(video_url, track["format_id"], out_dir)
+    mp3_path = download_audio(video_url, track["language"], out_dir)
 
     asset_name = f"{channel['name'].replace(' ', '_')}_{video['video_id']}.mp3"
     download_url = github_upload_asset(repo, github_token, mp3_path, asset_name)
