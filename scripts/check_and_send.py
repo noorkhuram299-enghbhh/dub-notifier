@@ -18,7 +18,6 @@ Required environment variables (set as GitHub Actions secrets):
   EMAIL_TO         - where notifications should be sent
   GITHUB_TOKEN     - provided automatically by GitHub Actions
   GITHUB_REPOSITORY- provided automatically by GitHub Actions (owner/repo)
-  TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID - optional, used to send error alerts
 """
 
 import os
@@ -35,7 +34,11 @@ NS = {"a": "http://www.w3.org/2005/Atom", "yt": "http://www.youtube.com/xml/sche
 
 def fetch_feed_entries(channel_id):
     url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
-    resp = requests.get(url, timeout=20)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    }
+    resp = requests.get(url, headers=headers, timeout=20)
     resp.raise_for_status()
     root = ET.fromstring(resp.content)
     entries = []
@@ -45,6 +48,39 @@ def fetch_feed_entries(channel_id):
         link = entry.find("a:link", NS).attrib["href"]
         entries.append({"video_id": video_id, "title": title, "link": link})
     return entries  # newest first, as YouTube returns it
+
+
+LANGUAGE_ALIASES = {
+    "chinese": ["zh", "cmn", "yue"],
+    "mandarin": ["cmn", "zh"],
+    "cantonese": ["yue"],
+    "english": ["en"],
+    "hindi": ["hi"],
+    "arabic": ["ar"],
+    "spanish": ["es"],
+    "french": ["fr"],
+    "german": ["de"],
+    "japanese": ["ja"],
+    "korean": ["ko"],
+    "portuguese": ["pt"],
+    "russian": ["ru"],
+    "italian": ["it"],
+    "turkish": ["tr"],
+    "vietnamese": ["vi"],
+    "thai": ["th"],
+    "indonesian": ["id"],
+    "urdu": ["ur"],
+    "bengali": ["bn"],
+    "tamil": ["ta"],
+    "telugu": ["te"],
+    "polish": ["pl"],
+    "dutch": ["nl"],
+    "ukrainian": ["uk"],
+    "bulgarian": ["bg"],
+    "croatian": ["hr"],
+    "czech": ["cs"],
+    "danish": ["da"],
+}
 
 
 def best_track_for_language(info, language):
@@ -65,8 +101,16 @@ def best_track_for_language(info, language):
                 "is_default": "default" in note.lower() or "original" in note.lower(),
             }
 
-    if language.lower() in best_by_lang:
-        return best_by_lang[language.lower()], True
+    wanted = language.lower().strip()
+
+    if wanted in best_by_lang:
+        return best_by_lang[wanted], True
+
+    prefixes = LANGUAGE_ALIASES.get(wanted, [wanted])
+    for lang_code, track in best_by_lang.items():
+        for prefix in prefixes:
+            if lang_code == prefix or lang_code.startswith(prefix + "-") or lang_code.startswith(prefix + "_"):
+                return track, True
 
     for t in best_by_lang.values():
         if t["is_default"]:
