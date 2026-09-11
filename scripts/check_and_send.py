@@ -18,6 +18,7 @@ Required environment variables (set as GitHub Actions secrets):
   EMAIL_TO         - where notifications should be sent
   GITHUB_TOKEN     - provided automatically by GitHub Actions
   GITHUB_REPOSITORY- provided automatically by GitHub Actions (owner/repo)
+  TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID - optional, used to send error alerts
 """
 
 import os
@@ -67,7 +68,6 @@ def best_track_for_language(info, language):
     if language.lower() in best_by_lang:
         return best_by_lang[language.lower()], True
 
-    # fall back to the default/original track, or just the first one found
     for t in best_by_lang.values():
         if t["is_default"]:
             return t, False
@@ -138,11 +138,11 @@ def main():
 
     for channel in data["channels"]:
         print(f"Checking {channel['name']} ({channel['channel_id']})...")
-                try:
+        try:
             entries = fetch_feed_entries(channel["channel_id"])
         except Exception as e:
             print(f"  failed to fetch feed: {e}")
-            send_telegram_message(tg_token, tg_chat_id, f"⚠️ Failed to check {channel['name']}: {e}")
+            send_telegram_message(tg_token, tg_chat_id, f"Failed to check {channel['name']}: {e}")
             continue
 
         if not entries:
@@ -150,30 +150,27 @@ def main():
 
         last_id = channel.get("last_video_id")
         if last_id is None:
-            # first run for this channel: just remember the latest video,
-            # don't email the whole back-catalog
             channel["last_video_id"] = entries[0]["video_id"]
             changed = True
             print("  first run for this channel, marking latest video as seen")
             continue
 
-        # entries are newest-first; find new ones (above the last seen id)
         new_ones = []
         for e in entries:
             if e["video_id"] == last_id:
                 break
             new_ones.append(e)
-        new_ones.reverse()  # process oldest-first
+        new_ones.reverse()
 
         for video in new_ones:
             print(f"  new video: {video['title']}")
-                        try:
+            try:
                 process_video(channel, video, repo, github_token, resend_key, email_from, email_to)
             except Exception as e:
                 print(f"  failed to process {video['link']}: {e}")
                 send_telegram_message(
                     tg_token, tg_chat_id,
-                    f"⚠️ Failed to process video for {channel['name']}: {video['title']}\nReason: {e}"
+                    f"Failed to process video for {channel['name']}: {video['title']}\nReason: {e}"
                 )
                 continue
             channel["last_video_id"] = video["video_id"]
