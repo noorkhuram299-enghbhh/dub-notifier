@@ -24,7 +24,7 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-            - name: Run checker
+      - name: Run checker
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
