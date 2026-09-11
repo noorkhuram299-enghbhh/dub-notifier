@@ -1,6 +1,6 @@
 """
 Shared helpers: config I/O, channel-ID resolution, GitHub release uploads,
-and Resend email sending.
+Resend email sending, and Telegram alert sending.
 """
 
 import json
@@ -97,6 +97,10 @@ def send_email(api_key, from_addr, to_addr, subject, html):
     r.raise_for_status()
     return r.json()
 
+
+# ----------------------------------------------------------------------
+# Telegram alert (used to notify you of errors from check_and_send.py)
+# ----------------------------------------------------------------------
 def send_telegram_message(token, chat_id, text):
     if not token or not chat_id:
         return
