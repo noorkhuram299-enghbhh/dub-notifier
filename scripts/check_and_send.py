@@ -18,7 +18,7 @@ Required environment variables (set as GitHub Actions secrets):
   EMAIL_TO         - where notifications should be sent
   GITHUB_TOKEN     - provided automatically by GitHub Actions
   GITHUB_REPOSITORY- provided automatically by GitHub Actions (owner/repo)
-  YOUTUBE_COOKIES  - optional, exported browser cookies to bypass bot checks
+  YOUTUBE_COOKIES  - exported browser cookies, used to bypass YouTube's bot checks
 """
 
 import os
@@ -51,7 +51,6 @@ def fetch_feed_entries(channel_id):
         "extract_flat": True,
         "skip_download": True,
         "playlistend": 15,
-        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
         **_cookie_opts(),
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -72,7 +71,7 @@ def fetch_feed_entries(channel_id):
 
 
 LANGUAGE_ALIASES = {
-    "chinese": ["zh", "cmn", "yue"],
+    "chinese": ["zh", "cmn", "yue"  "cn"],
     "mandarin": ["cmn", "zh"],
     "cantonese": ["yue"],
     "english": ["en"],
@@ -157,7 +156,6 @@ def download_audio(url, out_dir, language_code=None, format_id=None):
         "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}],
         "quiet": True,
         "no_warnings": True,
-        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
         **_cookie_opts(),
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -172,7 +170,6 @@ def process_video(channel, video, repo, github_token, resend_key, email_from, em
         "quiet": True,
         "no_warnings": True,
         "skip_download": True,
-        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
         **_cookie_opts(),
     }) as ydl:
         info = ydl.extract_info(video_url, download=False)
