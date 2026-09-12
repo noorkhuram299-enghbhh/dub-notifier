@@ -110,13 +110,15 @@ def best_track_for_language(info, language):
 
     best_by_lang = {}
     for f in audio_only:
-        lang = (f.get("language") or "und").lower()
+        raw_lang = f.get("language") or "und"
+        lang = raw_lang.lower()
         abr = f.get("abr") or 0
         note = f.get("format_note", "") or ""
         current = best_by_lang.get(lang)
         if current is None or abr > (current["abr"] or 0):
             best_by_lang[lang] = {
                 "language": lang,
+                "raw_language": raw_lang,
                 "format_id": f.get("format_id"),
                 "abr": abr,
                 "is_default": "default" in note.lower() or "original" in note.lower(),
@@ -141,9 +143,16 @@ def best_track_for_language(info, language):
     return None, False
 
 
-def download_audio(url, language_code, out_dir):
+def download_audio(url, out_dir, language_code=None, format_id=None):
+    if format_id:
+        fmt = format_id
+    elif language_code:
+        fmt = f'bestaudio[language="{language_code}"]/bestaudio'
+    else:
+        fmt = "bestaudio"
+
     ydl_opts = {
-        "format": f"bestaudio[language={language_code}]/bestaudio",
+        "format": fmt,
         "outtmpl": os.path.join(out_dir, "%(id)s.%(ext)s"),
         "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}],
         "quiet": True,
@@ -175,13 +184,30 @@ def process_video(channel, video, repo, github_token, resend_key, email_from, em
 
     out_dir = "/tmp/downloads"
     os.makedirs(out_dir, exist_ok=True)
-    mp3_path = download_audio(video_url, track["language"], out_dir)
+
+    mp3_path = None
+    got_requested_language = matched
+    for attempt in (
+        {"language_code": track["raw_language"]},
+        {"format_id": track["format_id"]},
+        {},
+    ):
+        try:
+            mp3_path = download_audio(video_url, out_dir, **attempt)
+            if attempt == {}:
+                got_requested_language = False
+            break
+        except Exception:
+            continue
+
+    if mp3_path is None:
+        raise RuntimeError("Could not download any audio track for this video.")
 
     asset_name = f"{channel['name'].replace(' ', '_')}_{video['video_id']}.mp3"
     download_url = github_upload_asset(repo, github_token, mp3_path, asset_name)
     os.remove(mp3_path)
 
-    lang_note = "" if matched else (
+    lang_note = "" if got_requested_language else (
         f"<p><em>Note: the \"{channel['language']}\" dub wasn't available on this video, "
         f"so the original/default audio track is attached instead.</em></p>"
     )
@@ -219,42 +245,3 @@ def main():
             continue
 
         if not entries:
-            continue
-
-        last_id = channel.get("last_video_id")
-        if last_id is None:
-            channel["last_video_id"] = entries[0]["video_id"]
-            changed = True
-            print("  first run for this channel, marking latest video as seen")
-            continue
-
-        new_ones = []
-        for e in entries:
-            if e["video_id"] == last_id:
-                break
-            new_ones.append(e)
-        new_ones.reverse()
-
-        for video in new_ones:
-            print(f"  new video: {video['title']}")
-            try:
-                process_video(channel, video, repo, github_token, resend_key, email_from, email_to)
-            except Exception as e:
-                print(f"  failed to process {video['link']}: {e}")
-                send_telegram_message(
-                    tg_token, tg_chat_id,
-                    f"Failed to process video for {channel['name']}: {video['title']}\nReason: {e}"
-                )
-                continue
-            channel["last_video_id"] = video["video_id"]
-            changed = True
-
-    if changed:
-        save_channels(data)
-        print("Config updated.")
-    else:
-        print("Nothing new.")
-
-
-if __name__ == "__main__":
-    sys.exit(main())
