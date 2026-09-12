@@ -2,8 +2,7 @@
 Runs on a GitHub Actions schedule (every couple of minutes). Polls Telegram
 for new messages and lets you control the tool from your phone, e.g.:
 
-  /add https://youtube.com/@somechannel hindi
-  /setlang somechannel english
+  /add https://youtube.com/@somechannel
   /remove somechannel
   /list
   /help
@@ -48,13 +47,12 @@ def handle_command(token, chat_id, text, data):
     if cmd == "/help":
         reply(token, chat_id,
               "Commands:\n"
-              "/add <channel url> <language code>\n"
-              "/setlang <channel name> <language code>\n"
+              "/add <channel url>\n"
               "/remove <channel name>\n"
               "/list")
 
-    elif cmd == "/add" and len(parts) >= 3:
-        url, language = parts[1], parts[2]
+    elif cmd == "/add" and len(parts) >= 2:
+        url = parts[1]
         try:
             channel_id, channel_name = resolve_channel_id(url)
         except Exception as e:
@@ -66,19 +64,9 @@ def handle_command(token, chat_id, text, data):
         data["channels"].append({
             "name": channel_name,
             "channel_id": channel_id,
-            "language": language,
             "last_video_id": None,
         })
-        reply(token, chat_id, f"Added '{channel_name}' ({channel_id}), dub language: {language}")
-
-    elif cmd == "/setlang" and len(parts) >= 3:
-        name, language = " ".join(parts[1:-1]), parts[-1]
-        ch = find_channel(data, name)
-        if not ch:
-            reply(token, chat_id, f"No channel named '{name}'. Use /list to see tracked channels.")
-            return
-        ch["language"] = language
-        reply(token, chat_id, f"'{ch['name']}' will now use dub language: {language}")
+        reply(token, chat_id, f"Added '{channel_name}' ({channel_id}). You'll get a Telegram message for new uploads.")
 
     elif cmd == "/remove" and len(parts) >= 2:
         name = " ".join(parts[1:])
@@ -91,9 +79,9 @@ def handle_command(token, chat_id, text, data):
 
     elif cmd == "/list":
         if not data["channels"]:
-            reply(token, chat_id, "No channels tracked yet. Use /add <url> <language>.")
+            reply(token, chat_id, "No channels tracked yet. Use /add <url>.")
         else:
-            lines = [f"- {c['name']}: {c['language']}" for c in data["channels"]]
+            lines = [f"- {c['name']}" for c in data["channels"]]
             reply(token, chat_id, "Tracked channels:\n" + "\n".join(lines))
 
     else:
@@ -117,7 +105,7 @@ def main():
             continue
         chat_id = str(msg["chat"]["id"])
         if chat_id != allowed_chat_id:
-            continue  # ignore anyone who isn't you
+            continue
         handle_command(token, chat_id, msg["text"], data)
         changed = True
 
