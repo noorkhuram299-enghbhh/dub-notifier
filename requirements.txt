@@ -1,2 +1,2 @@
-yt-dlp>=2025.1.1
+yt-dlp @ git+https://github.com/yt-dlp/yt-dlp.git
 requests
