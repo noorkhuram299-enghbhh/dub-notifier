@@ -34,13 +34,23 @@ COOKIE_FILE = "/tmp/youtube_cookies.txt"
 
 
 def _cookie_opts():
+    """If YOUTUBE_COOKIES secret is set, write it to a temp file and tell
+    yt-dlp to use it. This helps avoid YouTube's bot-detection wall, which
+    is common when requests come from cloud/datacenter IPs like GitHub's."""
     cookies = os.environ.get("YOUTUBE_COOKIES")
     if not cookies:
         return {}
     if not os.path.exists(COOKIE_FILE):
         with open(COOKIE_FILE, "w", encoding="utf-8") as f:
             f.write(cookies)
-    return {"cookiefile": COOKIE_FILE}
+    # When cookies are present, YouTube sometimes routes requests through a
+    # "tv_downgraded" client that's been broken intermittently on YouTube's
+    # side (a known, actively-tracked yt-dlp issue). Forcing this specific
+    # client combo is the documented workaround from yt-dlp's maintainers.
+    return {
+        "cookiefile": COOKIE_FILE,
+        "extractor_args": {"youtube": {"player_client": ["default", "web_embedded"]}},
+    }
 
 
 def fetch_feed_entries(channel_id):
